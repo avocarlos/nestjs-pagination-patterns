@@ -2,39 +2,65 @@ import {
   IsDate,
   IsEnum,
   IsOptional,
-  IsString,
   IsNumberString,
+  IsBase64,
+  isBase64,
 } from 'class-validator';
 import {
   ExternalHealthRecordProvider,
   ExternalHealthRecordResourceType,
 } from '../health-record.entity';
+import { z } from 'zod';
 
-export class ListHealthRecordsDto {
-  @IsEnum(ExternalHealthRecordProvider)
-  source: ExternalHealthRecordProvider;
+export const createListHealthRecordsDto = z.object({
+  source: z.nativeEnum(ExternalHealthRecordProvider),
+  resourceType: z.nativeEnum(ExternalHealthRecordResourceType).optional(),
+  limit: z.number().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  next: z
+    .string()
+    .refine(isBase64)
+    .transform((value) =>
+      Buffer.from(value, 'base64').toString('utf-8').split('|'),
+    )
+    .optional(),
+  previous: z
+    .string()
+    .refine(isBase64)
+    .transform((value) =>
+      Buffer.from(value, 'base64').toString('utf-8').split('|'),
+    )
+    .optional(),
+});
 
-  @IsOptional()
-  @IsEnum(ExternalHealthRecordResourceType)
-  resourceType?: ExternalHealthRecordResourceType;
+// export class ListHealthRecordsDto {
+//   @IsEnum(ExternalHealthRecordProvider)
+//   source: ExternalHealthRecordProvider;
 
-  @IsOptional()
-  @IsNumberString()
-  limit?: number;
+//   @IsOptional()
+//   @IsEnum(ExternalHealthRecordResourceType)
+//   resourceType?: ExternalHealthRecordResourceType;
 
-  @IsOptional()
-  @IsDate()
-  startDate?: Date;
+//   @IsOptional()
+//   @IsNumberString()
+//   limit?: number;
 
-  @IsOptional()
-  @IsDate()
-  endDate?: Date;
+//   @IsDate()
+//   @IsOptional()
+//   startDate?: Date;
 
-  @IsString()
-  @IsOptional()
-  next?: string;
+//   @IsDate()
+//   @IsOptional()
+//   endDate?: Date;
 
-  @IsString()
-  @IsOptional()
-  previous?: string;
-}
+//   @IsBase64()
+//   @IsOptional()
+//   next?: string;
+
+//   @IsBase64()
+//   @IsOptional()
+//   previous?: string;
+// }
+
+export type ListHealthRecordsDto = z.infer<typeof createListHealthRecordsDto>;

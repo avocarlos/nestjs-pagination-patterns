@@ -5,6 +5,13 @@ import { HealthRecordEntity } from './health-record.entity';
 import { Repository } from 'typeorm';
 import { CreateHealthRecordDto } from './dto/create-health-record.dto';
 
+type ListHealthRecords = {
+  healthRecords: HealthRecordEntity[];
+  total: number;
+  next: string | null;
+  previous: string | null;
+};
+
 @Injectable()
 export class HealthRecordsService {
   constructor(
@@ -22,67 +29,81 @@ export class HealthRecordsService {
     return this.healthRecordsRepository.save(entity);
   }
 
-  async listHealthRecords(listHealthRecordsDto: ListHealthRecordsDto): Promise<{
-    healthRecords: HealthRecordEntity[];
-    total: number;
-    next: string | null;
-    previous: string | null;
-  }> {
+  async listHealthRecords(
+    listHealthRecordsDto: ListHealthRecordsDto,
+  ): Promise<ListHealthRecords> {
     const query =
       this.healthRecordsRepository.createQueryBuilder('health_record');
+
+    query.where('source = :source', { source: listHealthRecordsDto.source });
 
     if (!listHealthRecordsDto.next && !listHealthRecordsDto.previous) {
       query.orderBy('health_record.created_at', 'DESC');
     }
 
     if (listHealthRecordsDto.next) {
+      const [id, first] = listHealthRecordsDto.next;
+
       query
-        .where(`health_record.id < :id`, {
-          id: this.decode(listHealthRecordsDto.next),
+        .andWhere(`health_record.id ${Boolean(first) ? '<=' : '<'} :id`, {
+          id,
         })
         .orderBy('health_record.created_at', 'DESC');
     }
 
     if (listHealthRecordsDto.previous) {
+      const [id, last] = listHealthRecordsDto.previous;
+
       query
-        .where(`health_record.id > :id`, {
-          id: this.decode(listHealthRecordsDto.previous),
+        .andWhere(`health_record.id ${Boolean(last) ? '>=' : '>'} :id`, {
+          id,
         })
         .orderBy('health_record.created_at', 'ASC');
     }
 
-    const healthRecords = await query
+    const results = await query
       .limit(Number(listHealthRecordsDto.limit) ?? 10)
       .getMany();
 
-    const total = await this.healthRecordsRepository.count({ where: {} });
+    const total = await this.healthRecordsRepository.countBy({
+      source: listHealthRecordsDto.source,
+    });
+
+    const healthRecords = listHealthRecordsDto.previous
+      ? results.reverse()
+      : results;
 
     const firstElement = healthRecords.at(0);
     const lastElement = healthRecords.at(-1);
 
-    const usingCursor = Boolean(
-      listHealthRecordsDto.previous || listHealthRecordsDto.next,
-    );
+    if (!healthRecords.length) {
+      return {
+        healthRecords,
+        next: listHealthRecordsDto.previous
+          ? this.encodeCursor(listHealthRecordsDto.previous.at(0), true)
+          : null,
+        previous: listHealthRecordsDto.next
+          ? this.encodeCursor(listHealthRecordsDto.next.at(0), true)
+          : null,
+        total,
+      };
+    }
+
+    const cursor = listHealthRecordsDto.next || listHealthRecordsDto.previous;
 
     return {
-      healthRecords: listHealthRecordsDto.previous
-        ? healthRecords.reverse()
-        : healthRecords,
-      next: this.encode(lastElement?.id),
-      previous: usingCursor ? this.encode(firstElement?.id) : null,
+      healthRecords,
+      next: this.encodeCursor(lastElement?.id) ?? null,
+      previous: !!cursor ? this.encodeCursor(firstElement?.id) : null,
       total,
     };
   }
 
-  private encode(value?: string | number | boolean): string | null {
-    if (value) {
-      return Buffer.from(String(value), 'utf-8').toString('base64');
-    }
-
-    return null;
+  private encodeCursor(...args: unknown[]): string {
+    return Buffer.from(args.join('|'), 'utf-8').toString('base64');
   }
 
-  private decode(value: string): string {
-    return Buffer.from(value, 'base64').toString('utf-8');
+  private decodeCursor(value: string = ''): string[] {
+    return Buffer.from(value, 'base64').toString('utf-8').split('|');
   }
 }
