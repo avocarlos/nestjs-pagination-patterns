@@ -10,10 +10,10 @@ import {
 import { HealthRecordsService } from './health-records.service';
 import {
   ListHealthRecordsDto,
-  createListHealthRecordsDto,
+  buildListHealthRecordsDto,
 } from './dto/list-health-records.dto';
+import { CreateHealthRecordDto, buildCreateHealthRecordsDto } from './dto/create-health-record.dto';
 import { HealthRecordEntity } from './health-record.entity';
-import { CreateHealthRecordDto } from './dto/create-health-record.dto';
 import { ZodValidationPipe } from 'src/pipes/zod-validation.pipe';
 
 @Controller('health-records')
@@ -21,7 +21,7 @@ export class HealthRecordsController {
   constructor(private healthRecordsService: HealthRecordsService) {}
 
   @Get()
-  @UsePipes(new ZodValidationPipe(createListHealthRecordsDto))
+  @UsePipes(new ZodValidationPipe(buildListHealthRecordsDto))
   async listHealthRecords(@Query() dto: ListHealthRecordsDto): Promise<{
     healthRecords: HealthRecordEntity[];
     total: number;
@@ -36,6 +36,7 @@ export class HealthRecordsController {
   }
 
   @Post()
+  @UsePipes(new ZodValidationPipe(buildCreateHealthRecordsDto))
   async createHealthRecord(
     @Body() createHealthRecordDto: CreateHealthRecordDto,
   ): Promise<HealthRecordEntity> {
@@ -44,9 +45,5 @@ export class HealthRecordsController {
 
   private encodeCursor(...args: unknown[]): string {
     return Buffer.from(args.join('|'), 'utf-8').toString('base64');
-  }
-
-  private decodeCursor(value: string = ''): string[] {
-    return Buffer.from(value, 'base64').toString('utf-8').split('|');
   }
 }

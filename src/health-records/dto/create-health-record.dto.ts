@@ -1,24 +1,16 @@
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
 import {
   ExternalHealthRecordOrigin,
   ExternalHealthRecordProvider,
   ExternalHealthRecordResourceType,
 } from '../health-record.entity';
+import { z } from 'zod';
 
-export class CreateHealthRecordDto {
-  @IsUUID()
-  resourceId: string;
+export const buildCreateHealthRecordsDto = z.object({
+  origin: z.nativeEnum(ExternalHealthRecordOrigin).optional(),
+  resourceType: z.nativeEnum(ExternalHealthRecordResourceType),
+  source: z.nativeEnum(ExternalHealthRecordProvider),
+  resourceId: z.string().uuid(),
+  userId: z.string().uuid(),
+});
 
-  @IsUUID()
-  userId: string;
-
-  @IsEnum(ExternalHealthRecordProvider)
-  source: ExternalHealthRecordProvider;
-
-  @IsEnum(ExternalHealthRecordResourceType)
-  resourceType: ExternalHealthRecordResourceType;
-
-  @IsEnum(ExternalHealthRecordOrigin)
-  @IsOptional()
-  origin?: ExternalHealthRecordOrigin;
-}
+export type CreateHealthRecordDto = z.infer<typeof buildCreateHealthRecordsDto>;
