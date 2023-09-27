@@ -42,8 +42,4 @@ export class HealthRecordsController {
   ): Promise<HealthRecordEntity> {
     return this.healthRecordsService.create(createHealthRecordDto);
   }
-
-  private encodeCursor(...args: unknown[]): string {
-    return Buffer.from(args.join('|'), 'utf-8').toString('base64');
-  }
 }
